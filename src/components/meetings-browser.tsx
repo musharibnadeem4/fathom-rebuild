@@ -2,27 +2,40 @@
 
 import { useMemo, useState } from "react";
 import Link from "next/link";
-import { Calendar, Clock, Search, Users, Video } from "lucide-react";
+import { Clock, Search, Users, Video } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
 import {
   Card,
   CardContent,
-  CardDescription,
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import { formatDuration } from "@/lib/format";
 
 export type MeetingCardData = {
   id: string;
   title: string;
   dateLabel: string;
   durationLabel: string;
-  participantCount: number;
+  participantInitials: string[];
   snippet: string;
 };
 
-export function MeetingsBrowser({ meetings }: { meetings: MeetingCardData[] }) {
+export type MeetingStats = {
+  totalMeetings: number;
+  totalParticipants: number;
+  totalSeconds: number;
+};
+
+export function MeetingsBrowser({
+  meetings,
+  stats,
+}: {
+  meetings: MeetingCardData[];
+  stats: MeetingStats;
+}) {
   const [query, setQuery] = useState("");
 
   const filtered = useMemo(() => {
@@ -32,65 +45,152 @@ export function MeetingsBrowser({ meetings }: { meetings: MeetingCardData[] }) {
   }, [meetings, query]);
 
   return (
-    <div className="flex flex-col gap-8">
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
-        <div>
-          <h1 className="text-3xl font-semibold tracking-tight text-foreground">
-            Meetings
-          </h1>
-          <p className="mt-1 text-sm text-muted-foreground">
-            {meetings.length} {meetings.length === 1 ? "meeting" : "meetings"} recorded
+    <main className="flex-1">
+      {/* Hero band — carries real weight even with a small dataset: eyebrow,
+          heading, live stats, and search, on a subtly textured backdrop. */}
+      <div className="relative overflow-hidden border-b border-border/70">
+        <div
+          aria-hidden
+          className="absolute inset-0 -z-10 bg-[radial-gradient(circle_at_1px_1px,var(--color-border)_1px,transparent_0)] bg-[size:24px_24px] [mask-image:radial-gradient(ellipse_70%_60%_at_50%_0%,black_30%,transparent_100%)]"
+        />
+        <div
+          aria-hidden
+          className="absolute -top-24 left-1/2 -z-10 h-72 w-[36rem] -translate-x-1/2 rounded-full bg-brand/15 blur-3xl"
+        />
+
+        <div className="mx-auto max-w-6xl px-6 pb-8 pt-12">
+          <p className="text-xs font-semibold uppercase tracking-widest text-brand">
+            Meeting workspace
           </p>
-        </div>
-        <div className="relative w-full sm:w-80">
-          <Search className="pointer-events-none absolute left-2.5 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
-          <Input
-            value={query}
-            onChange={(event) => setQuery(event.target.value)}
-            placeholder="Search meetings by title…"
-            className="h-10 pl-8"
-          />
+          <div className="mt-2 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+            <div>
+              <h1 className="text-4xl font-semibold tracking-tight text-foreground">
+                Meetings
+              </h1>
+              <p className="mt-1.5 max-w-md text-sm text-muted-foreground">
+                Every call transcribed, summarized, and ready to search — the
+                moment it&apos;s processed.
+              </p>
+            </div>
+            <div className="relative w-full sm:w-80">
+              <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+              <Input
+                value={query}
+                onChange={(event) => setQuery(event.target.value)}
+                placeholder="Search meetings by title…"
+                className="h-11 rounded-xl pl-9 text-sm shadow-sm"
+              />
+            </div>
+          </div>
+
+          <div className="mt-8 grid grid-cols-3 gap-3 sm:max-w-xl">
+            <StatTile
+              icon={<Video className="size-4" />}
+              value={stats.totalMeetings}
+              label={stats.totalMeetings === 1 ? "Meeting" : "Meetings"}
+            />
+            <StatTile
+              icon={<Users className="size-4" />}
+              value={stats.totalParticipants}
+              label="Participants"
+            />
+            <StatTile
+              icon={<Clock className="size-4" />}
+              value={formatDuration(stats.totalSeconds)}
+              label="Recorded"
+            />
+          </div>
         </div>
       </div>
 
-      {meetings.length === 0 ? (
-        <EmptyState kind="no-meetings" />
-      ) : filtered.length === 0 ? (
-        <EmptyState kind="no-results" query={query} onClear={() => setQuery("")} />
-      ) : (
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {filtered.map((meeting) => (
-            <MeetingCard key={meeting.id} meeting={meeting} />
-          ))}
-        </div>
-      )}
+      <div className="mx-auto max-w-6xl px-6 py-10">
+        {meetings.length === 0 ? (
+          <EmptyState kind="no-meetings" />
+        ) : filtered.length === 0 ? (
+          <EmptyState kind="no-results" query={query} onClear={() => setQuery("")} />
+        ) : (
+          <div className="flex flex-wrap gap-4">
+            {filtered.map((meeting) => (
+              <MeetingCard key={meeting.id} meeting={meeting} />
+            ))}
+          </div>
+        )}
+      </div>
+    </main>
+  );
+}
+
+function StatTile({
+  icon,
+  value,
+  label,
+}: {
+  icon: React.ReactNode;
+  value: number | string;
+  label: string;
+}) {
+  return (
+    <div className="rounded-xl border border-border bg-card px-3.5 py-3 shadow-sm">
+      <div className="flex items-center gap-1.5 text-brand">{icon}</div>
+      <p className="mt-2 text-xl font-semibold leading-none tracking-tight text-foreground">
+        {value}
+      </p>
+      <p className="mt-1 text-xs text-muted-foreground">{label}</p>
     </div>
   );
 }
 
 function MeetingCard({ meeting }: { meeting: MeetingCardData }) {
+  const visibleInitials = meeting.participantInitials.slice(0, 4);
+  const overflowCount = meeting.participantInitials.length - visibleInitials.length;
+
   return (
-    <Link href={`/meetings/${meeting.id}`} className="group block focus:outline-none">
-      <Card className="h-full transition-all duration-150 hover:-translate-y-0.5 hover:shadow-md hover:ring-foreground/20 focus-visible:ring-2 focus-visible:ring-ring">
-        <CardHeader>
-          <CardTitle className="line-clamp-2 text-base">{meeting.title}</CardTitle>
-          <CardDescription className="flex flex-wrap items-center gap-x-3 gap-y-1 pt-1 text-xs">
-            <span className="inline-flex items-center gap-1">
-              <Calendar className="size-3.5" />
-              {meeting.dateLabel}
-            </span>
-            <span className="inline-flex items-center gap-1">
-              <Clock className="size-3.5" />
+    <Link
+      href={`/meetings/${meeting.id}`}
+      className="group block w-full focus:outline-none sm:w-[calc(50%-0.5rem)] lg:w-[calc(33.333%-0.667rem)]"
+    >
+      <Card className="relative h-full gap-3 overflow-hidden border-border/80 py-5 shadow-sm transition-all duration-150 hover:-translate-y-0.5 hover:border-brand/40 hover:shadow-lg hover:shadow-brand/5 focus-visible:ring-2 focus-visible:ring-ring">
+        <span
+          aria-hidden
+          className="absolute inset-y-0 left-0 w-1 bg-brand opacity-0 transition-opacity group-hover:opacity-100"
+        />
+        <CardHeader className="gap-2">
+          <div className="flex items-start justify-between gap-2">
+            <CardTitle className="line-clamp-2 text-[15px] font-semibold leading-snug">
+              {meeting.title}
+            </CardTitle>
+            <Badge
+              variant="secondary"
+              className="shrink-0 bg-muted font-medium text-muted-foreground"
+            >
               {meeting.durationLabel}
-            </span>
-            <span className="inline-flex items-center gap-1">
-              <Users className="size-3.5" />
-              {meeting.participantCount}
-            </span>
-          </CardDescription>
+            </Badge>
+          </div>
+          <p className="text-xs text-muted-foreground">{meeting.dateLabel}</p>
         </CardHeader>
-        <CardContent>
-          <p className="line-clamp-3 text-sm text-muted-foreground">{meeting.snippet}</p>
+        <CardContent className="flex flex-col gap-3 border-t border-border/70 pt-3">
+          <p className="line-clamp-3 text-sm leading-relaxed text-muted-foreground">
+            {meeting.snippet}
+          </p>
+          {visibleInitials.length > 0 && (
+            <div className="flex items-center">
+              <div className="flex -space-x-2">
+                {visibleInitials.map((initial, index) => (
+                  <span
+                    key={`${initial}-${index}`}
+                    className="flex size-6 items-center justify-center rounded-full border-2 border-card bg-brand-soft text-[10px] font-semibold text-brand-soft-foreground"
+                  >
+                    {initial}
+                  </span>
+                ))}
+                {overflowCount > 0 && (
+                  <span className="flex size-6 items-center justify-center rounded-full border-2 border-card bg-muted text-[10px] font-semibold text-muted-foreground">
+                    +{overflowCount}
+                  </span>
+                )}
+              </div>
+            </div>
+          )}
         </CardContent>
       </Card>
     </Link>
@@ -105,7 +205,7 @@ function EmptyState(props: EmptyStateProps) {
   if (props.kind === "no-meetings") {
     return (
       <div className="flex flex-col items-center gap-3 rounded-2xl border border-dashed border-border py-24 text-center">
-        <div className="flex size-12 items-center justify-center rounded-full bg-indigo-50 text-indigo-600 dark:bg-indigo-500/10 dark:text-indigo-400">
+        <div className="flex size-12 items-center justify-center rounded-full bg-brand-soft text-brand-soft-foreground">
           <Video className="size-6" />
         </div>
         <h2 className="text-lg font-medium text-foreground">No meetings yet</h2>

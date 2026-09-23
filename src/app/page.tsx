@@ -1,7 +1,11 @@
 import { db } from "@/db";
-import { formatDate, formatDuration, truncate } from "@/lib/format";
+import { formatDuration, formatDate, truncate } from "@/lib/format";
 import { SiteHeader } from "@/components/site-header";
-import { MeetingsBrowser, type MeetingCardData } from "@/components/meetings-browser";
+import {
+  MeetingsBrowser,
+  type MeetingCardData,
+  type MeetingStats,
+} from "@/components/meetings-browser";
 
 type GeneralSummaryContent = {
   purpose?: string;
@@ -28,19 +32,25 @@ export default async function Home() {
       title: meeting.title,
       dateLabel: formatDate(meeting.recordedAt),
       durationLabel: formatDuration(meeting.durationSeconds),
-      participantCount: meeting.participants.length,
+      participantInitials: meeting.participants.map(
+        (p) => p.speakerLabel ?? p.name.charAt(0).toUpperCase(),
+      ),
       snippet: generalSummary?.purpose
         ? truncate(generalSummary.purpose, 140)
         : "No summary available yet.",
     };
   });
 
+  const stats: MeetingStats = {
+    totalMeetings: rows.length,
+    totalParticipants: rows.reduce((sum, m) => sum + m.participants.length, 0),
+    totalSeconds: rows.reduce((sum, m) => sum + (m.durationSeconds ?? 0), 0),
+  };
+
   return (
     <div className="flex min-h-screen flex-1 flex-col bg-background">
       <SiteHeader />
-      <main className="mx-auto w-full max-w-6xl flex-1 px-6 py-10">
-        <MeetingsBrowser meetings={meetings} />
-      </main>
+      <MeetingsBrowser meetings={meetings} stats={stats} />
     </div>
   );
 }
