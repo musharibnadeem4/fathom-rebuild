@@ -2,8 +2,15 @@
 
 import { useRef, useState } from "react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { MediaPlayer } from "@/components/meeting/media-player";
+import {
+  MediaPlayer,
+  type ChapterMarker,
+  type CoachingFlagMarker,
+} from "@/components/meeting/media-player";
 import { TranscriptPanel, type TranscriptLine } from "@/components/meeting/transcript-panel";
+import { SummaryPanel, type SummaryData } from "@/components/meeting/summary-panel";
+import { ActionItemsPanel, type ActionItemData } from "@/components/meeting/action-items-panel";
+import { AskPanel } from "@/components/meeting/ask-panel";
 import { useMediaSync } from "@/hooks/use-media-sync";
 import { useElementSize } from "@/hooks/use-element-size";
 
@@ -12,13 +19,23 @@ import { useElementSize } from "@/hooks/use-element-size";
 const SCROLL_CLEARANCE_BUFFER_PX = 20;
 
 export function MeetingWorkspace({
+  meetingId,
   mediaKind,
   mediaSrc,
   transcript,
+  summaries,
+  actionItems,
+  chapters,
+  coachingFlags,
 }: {
+  meetingId: string;
   mediaKind: "audio" | "video";
   mediaSrc: string;
   transcript: TranscriptLine[];
+  summaries: SummaryData;
+  actionItems: ActionItemData[];
+  chapters: ChapterMarker[];
+  coachingFlags: CoachingFlagMarker[];
 }) {
   const mediaRef = useRef<HTMLMediaElement | null>(null);
   const { activeIndex, seekTo } = useMediaSync(mediaRef, transcript);
@@ -37,7 +54,13 @@ export function MeetingWorkspace({
           ref={stickyRef}
           className="sticky top-16 z-10 flex flex-col gap-4 bg-background pb-4"
         >
-          <MediaPlayer kind={mediaKind} src={mediaSrc} mediaRef={mediaRef} />
+          <MediaPlayer
+            kind={mediaKind}
+            src={mediaSrc}
+            mediaRef={mediaRef}
+            chapters={chapters}
+            flags={coachingFlags}
+          />
 
           <TabsList variant="line" className="w-full justify-start border-b border-border">
             <TabsTrigger value="summary">Summary</TabsTrigger>
@@ -47,7 +70,7 @@ export function MeetingWorkspace({
         </div>
 
         <TabsContent value="summary">
-          <ComingSoonPanel label="Summary" />
+          <SummaryPanel summaries={summaries} />
         </TabsContent>
         <TabsContent value="transcript">
           <TranscriptPanel
@@ -58,23 +81,15 @@ export function MeetingWorkspace({
           />
         </TabsContent>
         <TabsContent value="ask">
-          <ComingSoonPanel label="Ask This Meeting" />
+          <AskPanel meetingId={meetingId} onSeek={seekTo} />
         </TabsContent>
       </Tabs>
 
       <aside className="hidden lg:block">
-        <div className="sticky top-16 rounded-2xl border border-dashed border-border p-6 text-sm text-muted-foreground">
-          Right rail — coming in the next pass.
+        <div className="sticky top-16 max-h-[calc(100vh-5rem)] overflow-y-auto rounded-2xl border border-border bg-card p-4">
+          <ActionItemsPanel items={actionItems} onSeek={seekTo} />
         </div>
       </aside>
-    </div>
-  );
-}
-
-function ComingSoonPanel({ label }: { label: string }) {
-  return (
-    <div className="rounded-2xl border border-dashed border-border px-6 py-16 text-center text-sm text-muted-foreground">
-      {label} is coming in a later pass.
     </div>
   );
 }
