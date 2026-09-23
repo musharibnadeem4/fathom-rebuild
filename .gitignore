@@ -43,3 +43,5 @@ next-env.d.ts
 
 .claude/settings.local.json
 .claude/hooks/.state/
+
+seed-media/
