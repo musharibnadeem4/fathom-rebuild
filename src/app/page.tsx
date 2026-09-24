@@ -30,6 +30,7 @@ export default async function Home() {
     return {
       id: meeting.id,
       title: meeting.title,
+      status: meeting.status,
       dateLabel: formatDate(meeting.recordedAt),
       durationLabel: formatDuration(meeting.durationSeconds),
       participantInitials: meeting.participants.map(

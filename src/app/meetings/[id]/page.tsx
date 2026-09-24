@@ -7,6 +7,7 @@ import type { SummaryData } from "@/components/meeting/summary-panel";
 import type { ActionItemData } from "@/components/meeting/action-items-panel";
 import type { ChapterMarker, CoachingFlagMarker } from "@/components/meeting/media-player";
 import { ShareDialog } from "@/components/meeting/share-dialog";
+import { MeetingProcessingState } from "@/components/meeting/processing-state";
 
 type PageProps = {
   params: Promise<{ id: string }>;
@@ -35,6 +36,27 @@ export default async function MeetingPage({ params }: PageProps) {
 
   if (!meeting) {
     notFound();
+  }
+
+  if (meeting.status !== "ready") {
+    return (
+      <div className="flex min-h-screen flex-1 flex-col bg-background">
+        <SiteHeader />
+        <div className="border-b border-border/70 px-6 py-5">
+          <div className="mx-auto max-w-6xl">
+            <h1 className="text-2xl font-semibold tracking-tight text-foreground">
+              {meeting.title}
+            </h1>
+          </div>
+        </div>
+        <main className="flex-1">
+          <MeetingProcessingState
+            meetingId={meeting.id}
+            initialStatus={meeting.status as "pending" | "processing" | "failed"}
+          />
+        </main>
+      </div>
+    );
   }
 
   const mediaSrc = meeting.videoUrl ?? meeting.audioUrl;

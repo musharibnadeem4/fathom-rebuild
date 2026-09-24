@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from "react";
 import Link from "next/link";
-import { Clock, Search, Users, Video } from "lucide-react";
+import { Clock, Loader2, Plus, Search, TriangleAlert, Users, Video } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -17,6 +17,7 @@ import { formatDuration } from "@/lib/format";
 export type MeetingCardData = {
   id: string;
   title: string;
+  status: "pending" | "processing" | "ready" | "failed";
   dateLabel: string;
   durationLabel: string;
   participantInitials: string[];
@@ -72,14 +73,24 @@ export function MeetingsBrowser({
                 moment it&apos;s processed.
               </p>
             </div>
-            <div className="relative w-full sm:w-80">
-              <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
-              <Input
-                value={query}
-                onChange={(event) => setQuery(event.target.value)}
-                placeholder="Search meetings by title…"
-                className="h-11 rounded-xl pl-9 text-sm shadow-sm"
-              />
+            <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:items-center">
+              <div className="relative w-full sm:w-72">
+                <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+                <Input
+                  value={query}
+                  onChange={(event) => setQuery(event.target.value)}
+                  placeholder="Search meetings by title…"
+                  className="h-11 rounded-xl pl-9 text-sm shadow-sm"
+                />
+              </div>
+              <Button
+                size="lg"
+                className="h-11 shrink-0 rounded-xl px-4"
+                render={<Link href="/meetings/new" />}
+              >
+                <Plus className="size-4" />
+                Add recording
+              </Button>
             </div>
           </div>
 
@@ -143,6 +154,8 @@ function StatTile({
 function MeetingCard({ meeting }: { meeting: MeetingCardData }) {
   const visibleInitials = meeting.participantInitials.slice(0, 4);
   const overflowCount = meeting.participantInitials.length - visibleInitials.length;
+  const isProcessing = meeting.status === "pending" || meeting.status === "processing";
+  const isFailed = meeting.status === "failed";
 
   return (
     <Link
@@ -159,18 +172,34 @@ function MeetingCard({ meeting }: { meeting: MeetingCardData }) {
             <CardTitle className="line-clamp-2 text-[15px] font-semibold leading-snug">
               {meeting.title}
             </CardTitle>
-            <Badge
-              variant="secondary"
-              className="shrink-0 bg-muted font-medium text-muted-foreground"
-            >
-              {meeting.durationLabel}
-            </Badge>
+            {isProcessing ? (
+              <Badge className="shrink-0 gap-1 bg-brand-soft font-medium text-brand-soft-foreground">
+                <Loader2 className="size-3 animate-spin" />
+                Processing
+              </Badge>
+            ) : isFailed ? (
+              <Badge className="shrink-0 gap-1 bg-destructive/10 font-medium text-destructive">
+                <TriangleAlert className="size-3" />
+                Failed
+              </Badge>
+            ) : (
+              <Badge
+                variant="secondary"
+                className="shrink-0 bg-muted font-medium text-muted-foreground"
+              >
+                {meeting.durationLabel}
+              </Badge>
+            )}
           </div>
           <p className="text-xs text-muted-foreground">{meeting.dateLabel}</p>
         </CardHeader>
         <CardContent className="flex flex-col gap-3 border-t border-border/70 pt-3">
           <p className="line-clamp-3 text-sm leading-relaxed text-muted-foreground">
-            {meeting.snippet}
+            {isProcessing
+              ? "Transcribing and analyzing this recording…"
+              : isFailed
+                ? "Processing didn't complete for this recording."
+                : meeting.snippet}
           </p>
           {visibleInitials.length > 0 && (
             <div className="flex items-center">
@@ -210,13 +239,16 @@ function EmptyState(props: EmptyStateProps) {
         </div>
         <h2 className="text-lg font-medium text-foreground">No meetings yet</h2>
         <p className="max-w-sm text-sm text-muted-foreground">
-          Meetings you record will show up here once they&apos;ve been processed.
-          Seed one with{" "}
+          Upload a recording to get started, or seed one locally with{" "}
           <code className="rounded bg-muted px-1.5 py-0.5 font-mono text-xs">
             npx tsx scripts/seed.ts
           </code>
           .
         </p>
+        <Button size="sm" className="mt-1" render={<Link href="/meetings/new" />}>
+          <Plus className="size-4" />
+          Add recording
+        </Button>
       </div>
     );
   }
