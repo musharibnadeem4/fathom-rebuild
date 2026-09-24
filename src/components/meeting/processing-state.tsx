@@ -60,6 +60,7 @@ export function MeetingProcessingState({
           variant="outline"
           size="sm"
           className="mt-1"
+          nativeButton={false}
           render={<Link href="/meetings/new">Try uploading again</Link>}
         />
       </div>

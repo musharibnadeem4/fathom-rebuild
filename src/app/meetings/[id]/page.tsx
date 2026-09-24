@@ -8,6 +8,7 @@ import type { ActionItemData } from "@/components/meeting/action-items-panel";
 import type { ChapterMarker, CoachingFlagMarker } from "@/components/meeting/media-player";
 import { ShareDialog } from "@/components/meeting/share-dialog";
 import { MeetingProcessingState } from "@/components/meeting/processing-state";
+import { BackToMeetingsLink } from "@/components/back-to-meetings-link";
 
 type PageProps = {
   params: Promise<{ id: string }>;
@@ -44,7 +45,8 @@ export default async function MeetingPage({ params }: PageProps) {
         <SiteHeader />
         <div className="border-b border-border/70 px-6 py-5">
           <div className="mx-auto max-w-6xl">
-            <h1 className="text-2xl font-semibold tracking-tight text-foreground">
+            <BackToMeetingsLink />
+            <h1 className="mt-2 text-2xl font-semibold tracking-tight text-foreground">
               {meeting.title}
             </h1>
           </div>
@@ -125,11 +127,14 @@ export default async function MeetingPage({ params }: PageProps) {
     <div className="flex min-h-screen flex-1 flex-col bg-background">
       <SiteHeader />
       <div className="border-b border-border/70 px-6 py-5">
-        <div className="mx-auto flex max-w-6xl items-center justify-between gap-4">
-          <h1 className="text-2xl font-semibold tracking-tight text-foreground">
-            {meeting.title}
-          </h1>
-          <ShareDialog meetingId={meeting.id} />
+        <div className="mx-auto max-w-6xl">
+          <BackToMeetingsLink />
+          <div className="mt-2 flex items-center justify-between gap-4">
+            <h1 className="text-2xl font-semibold tracking-tight text-foreground">
+              {meeting.title}
+            </h1>
+            <ShareDialog meetingId={meeting.id} />
+          </div>
         </div>
       </div>
       <MeetingWorkspace

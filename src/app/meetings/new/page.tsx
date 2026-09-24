@@ -1,5 +1,6 @@
 import { SiteHeader } from "@/components/site-header";
 import { UploadForm } from "@/components/meeting/upload-form";
+import { BackToMeetingsLink } from "@/components/back-to-meetings-link";
 
 export default function NewMeetingPage() {
   return (
@@ -7,7 +8,8 @@ export default function NewMeetingPage() {
       <SiteHeader />
       <main className="flex-1">
         <div className="mx-auto max-w-xl px-6 py-14">
-          <p className="text-xs font-semibold uppercase tracking-widest text-brand">
+          <BackToMeetingsLink />
+          <p className="mt-4 text-xs font-semibold uppercase tracking-widest text-brand">
             New meeting
           </p>
           <h1 className="mt-2 text-3xl font-semibold tracking-tight text-foreground">

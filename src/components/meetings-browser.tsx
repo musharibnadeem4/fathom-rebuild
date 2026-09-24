@@ -86,6 +86,7 @@ export function MeetingsBrowser({
               <Button
                 size="lg"
                 className="h-11 shrink-0 rounded-xl px-4"
+                nativeButton={false}
                 render={<Link href="/meetings/new" />}
               >
                 <Plus className="size-4" />
@@ -245,7 +246,7 @@ function EmptyState(props: EmptyStateProps) {
           </code>
           .
         </p>
-        <Button size="sm" className="mt-1" render={<Link href="/meetings/new" />}>
+        <Button size="sm" className="mt-1" nativeButton={false} render={<Link href="/meetings/new" />}>
           <Plus className="size-4" />
           Add recording
         </Button>
