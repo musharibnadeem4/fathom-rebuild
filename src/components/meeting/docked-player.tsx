@@ -190,7 +190,7 @@ export function DockedPlayer({
   return (
     <div
       ref={containerRef}
-      className="fixed inset-x-0 bottom-0 z-30 border-t border-border bg-background shadow-[0_-8px_24px_-12px_rgb(0_0_0/0.15)]"
+      className="fixed inset-x-0 bottom-0 z-30 border-t border-border bg-background shadow-[0_-8px_24px_-12px_var(--elevation)]"
     >
       <div className="mx-auto flex max-w-6xl flex-wrap items-center gap-x-3 gap-y-2 px-4 py-3 sm:px-6">
         {kind === "video" ? (
@@ -381,8 +381,8 @@ function FlagMarker({
             type="button"
             aria-label={ariaLabel}
             className={cn(
-              "pointer-events-auto absolute z-10 flex -translate-x-1/2 items-center justify-center rounded-full bg-amber-500 ring-2 ring-background transition-transform hover:scale-125",
-              single ? "-top-1 size-2.5" : "-top-[5px] size-4 text-[9px] font-bold text-white",
+              "pointer-events-auto absolute z-10 flex -translate-x-1/2 items-center justify-center rounded-full bg-flag ring-2 ring-background transition-transform hover:scale-125",
+              single ? "-top-1 size-2.5" : "-top-[5px] size-4 text-[9px] font-bold text-flag-foreground",
             )}
             style={{ left: `${leftPercent}%` }}
           >
@@ -406,7 +406,7 @@ function FlagMarker({
             const Icon = meta.icon;
             return (
               <li key={flag.id} className="flex gap-2">
-                <Icon className="mt-0.5 size-4 shrink-0 text-amber-600" />
+                <Icon className="mt-0.5 size-4 shrink-0 text-flag" />
                 <div className="min-w-0">
                   <p className="text-xs font-medium text-muted-foreground">{meta.label}</p>
                   {!single && (

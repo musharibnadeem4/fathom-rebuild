@@ -1,3 +1,5 @@
+import { ThemeToggle } from "@/components/theme-toggle";
+
 export function SiteHeader() {
   return (
     <header data-site-header className="sticky top-0 z-20 border-b border-border/70 bg-background/85 backdrop-blur-md">
@@ -10,9 +12,12 @@ export function SiteHeader() {
             Fathom
           </span>
         </div>
-        <span className="rounded-full bg-muted px-2.5 py-1 text-xs font-medium text-muted-foreground">
-          Demo workspace
-        </span>
+        <div className="flex items-center gap-2">
+          <span className="rounded-full bg-muted px-2.5 py-1 text-xs font-medium text-muted-foreground">
+            Demo workspace
+          </span>
+          <ThemeToggle />
+        </div>
       </div>
     </header>
   );

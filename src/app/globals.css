@@ -44,6 +44,25 @@
   --color-brand-foreground: var(--brand-foreground);
   --color-brand-soft: var(--brand-soft);
   --color-brand-soft-foreground: var(--brand-soft-foreground);
+  --color-flag: var(--flag);
+  --color-flag-foreground: var(--flag-foreground);
+  --color-flag-soft: var(--flag-soft);
+  --color-flag-soft-hover: var(--flag-soft-hover);
+  --color-flag-soft-foreground: var(--flag-soft-foreground);
+  --color-speaker-1: var(--speaker-1);
+  --color-speaker-1-soft: var(--speaker-1-soft);
+  --color-speaker-1-soft-foreground: var(--speaker-1-soft-foreground);
+  --color-speaker-2: var(--speaker-2);
+  --color-speaker-2-soft: var(--speaker-2-soft);
+  --color-speaker-2-soft-foreground: var(--speaker-2-soft-foreground);
+  --color-speaker-3: var(--speaker-3);
+  --color-speaker-3-soft: var(--speaker-3-soft);
+  --color-speaker-3-soft-foreground: var(--speaker-3-soft-foreground);
+  --color-speaker-4: var(--speaker-4);
+  --color-speaker-4-soft: var(--speaker-4-soft);
+  --color-speaker-4-soft-foreground: var(--speaker-4-soft-foreground);
+  --color-overlay: var(--overlay);
+  --color-elevation: var(--elevation);
   --radius-sm: calc(var(--radius) * 0.6);
   --radius-md: calc(var(--radius) * 0.8);
   --radius-lg: var(--radius);
@@ -53,7 +72,12 @@
   --radius-4xl: calc(var(--radius) * 2.6);
 }
 
+/* Every value below was checked for WCAG AA contrast (text 4.5:1, UI 3:1),
+   including blended cases like foreground/90 on the active transcript line.
+   Change a value → re-check it. */
 :root {
+  color-scheme: light;
+
   /* Brand accent — one confident indigo used systemically (primary actions,
      focus rings, active states), not spot-applied per component. */
   --brand: oklch(0.546 0.221 292.5);
@@ -61,6 +85,30 @@
   --brand-foreground: oklch(0.985 0 0);
   --brand-soft: oklch(0.947 0.032 292.5);
   --brand-soft-foreground: oklch(0.446 0.201 292.5);
+
+  /* Coaching flags (post-call analysis markers, callouts). */
+  --flag: oklch(0.666 0.179 58.3);
+  --flag-foreground: oklch(0.2 0.05 45);
+  --flag-soft: oklch(0.987 0.022 95.3);
+  --flag-soft-hover: oklch(0.962 0.059 95.6);
+  --flag-soft-foreground: oklch(0.414 0.112 45.9);
+
+  /* Per-speaker colors (talk-time bar, dots, avatars); speaker 1 is the brand. */
+  --speaker-1: var(--brand);
+  --speaker-1-soft: var(--brand-soft);
+  --speaker-1-soft-foreground: var(--brand-soft-foreground);
+  --speaker-2: oklch(0.666 0.179 58.3);
+  --speaker-2-soft: oklch(0.962 0.059 95.6);
+  --speaker-2-soft-foreground: oklch(0.555 0.163 49);
+  --speaker-3: oklch(0.596 0.145 163.2);
+  --speaker-3-soft: oklch(0.95 0.052 163);
+  --speaker-3-soft-foreground: oklch(0.508 0.118 165.6);
+  --speaker-4: oklch(0.645 0.246 16.4);
+  --speaker-4-soft: oklch(0.941 0.03 12.6);
+  --speaker-4-soft-foreground: oklch(0.514 0.222 16.9);
+
+  --overlay: oklch(0 0 0 / 10%);
+  --elevation: oklch(0 0 0 / 15%);
 
   --background: oklch(1 0 0);
   --foreground: oklch(0.145 0 0);
@@ -73,10 +121,10 @@
   --secondary: oklch(0.97 0 0);
   --secondary-foreground: oklch(0.205 0 0);
   --muted: oklch(0.97 0 0);
-  --muted-foreground: oklch(0.556 0 0);
+  --muted-foreground: oklch(0.53 0 0);
   --accent: oklch(0.97 0 0);
   --accent-foreground: oklch(0.205 0 0);
-  --destructive: oklch(0.577 0.245 27.325);
+  --destructive: oklch(0.52 0.21 27.3);
   --border: oklch(0.922 0 0);
   --input: oklch(0.922 0 0);
   --ring: var(--brand);
@@ -96,44 +144,75 @@
   --sidebar-ring: oklch(0.708 0 0);
 }
 
+/* Dark: warm charcoal surfaces (hue 60, never pure black), stepped lighter
+   for elevation (background < card < popover < muted) instead of relying on
+   shadows, which barely read on dark. Body text is a soft off-white (~15:1)
+   rather than pure white to cut glare on long transcripts. The brand keeps
+   its hue but is lifted in lightness so it passes as text on charcoal (7.2:1);
+   that makes white-on-brand impossible, so filled brand buttons carry dark
+   indigo text instead (7.3:1). */
 .dark {
-  --brand: oklch(0.637 0.202 292.5);
-  --brand-hover: oklch(0.7 0.185 292.5);
-  --brand-foreground: oklch(0.985 0 0);
-  --brand-soft: oklch(0.302 0.09 292.5);
-  --brand-soft-foreground: oklch(0.83 0.11 292.5);
+  color-scheme: dark;
 
-  --background: oklch(0.145 0 0);
-  --foreground: oklch(0.985 0 0);
-  --card: oklch(0.205 0 0);
-  --card-foreground: oklch(0.985 0 0);
-  --popover: oklch(0.205 0 0);
-  --popover-foreground: oklch(0.985 0 0);
+  --brand: oklch(0.72 0.15 292.5);
+  --brand-hover: oklch(0.77 0.13 292.5);
+  --brand-foreground: oklch(0.18 0.03 292.5);
+  --brand-soft: oklch(0.31 0.08 292.5);
+  --brand-soft-foreground: oklch(0.85 0.08 292.5);
+
+  --flag: oklch(0.78 0.16 70);
+  --flag-foreground: oklch(0.25 0.06 50);
+  --flag-soft: oklch(0.28 0.05 65);
+  --flag-soft-hover: oklch(0.32 0.06 65);
+  --flag-soft-foreground: oklch(0.86 0.11 80);
+
+  --speaker-1: var(--brand);
+  --speaker-1-soft: var(--brand-soft);
+  --speaker-1-soft-foreground: var(--brand-soft-foreground);
+  --speaker-2: oklch(0.78 0.16 70);
+  --speaker-2-soft: oklch(0.3 0.05 70);
+  --speaker-2-soft-foreground: oklch(0.85 0.12 80);
+  --speaker-3: oklch(0.72 0.15 163);
+  --speaker-3-soft: oklch(0.29 0.05 163);
+  --speaker-3-soft-foreground: oklch(0.85 0.1 163);
+  --speaker-4: oklch(0.7 0.19 16);
+  --speaker-4-soft: oklch(0.3 0.06 16);
+  --speaker-4-soft-foreground: oklch(0.85 0.08 16);
+
+  --overlay: oklch(0 0 0 / 55%);
+  --elevation: oklch(0 0 0 / 50%);
+
+  --background: oklch(0.185 0.006 60);
+  --foreground: oklch(0.93 0.006 80);
+  --card: oklch(0.215 0.006 60);
+  --card-foreground: oklch(0.93 0.006 80);
+  --popover: oklch(0.235 0.007 60);
+  --popover-foreground: oklch(0.93 0.006 80);
   --primary: var(--brand);
   --primary-foreground: var(--brand-foreground);
-  --secondary: oklch(0.269 0 0);
-  --secondary-foreground: oklch(0.985 0 0);
-  --muted: oklch(0.269 0 0);
-  --muted-foreground: oklch(0.708 0 0);
-  --accent: oklch(0.269 0 0);
-  --accent-foreground: oklch(0.985 0 0);
-  --destructive: oklch(0.704 0.191 22.216);
-  --border: oklch(1 0 0 / 10%);
-  --input: oklch(1 0 0 / 15%);
+  --secondary: oklch(0.265 0.007 60);
+  --secondary-foreground: oklch(0.93 0.006 80);
+  --muted: oklch(0.265 0.007 60);
+  --muted-foreground: oklch(0.74 0.01 70);
+  --accent: oklch(0.265 0.007 60);
+  --accent-foreground: oklch(0.93 0.006 80);
+  --destructive: oklch(0.7 0.18 22);
+  --border: oklch(0.31 0.007 60);
+  --input: oklch(0.36 0.008 60);
   --ring: var(--brand);
   --chart-1: oklch(0.87 0 0);
   --chart-2: oklch(0.556 0 0);
   --chart-3: oklch(0.439 0 0);
   --chart-4: oklch(0.371 0 0);
   --chart-5: oklch(0.269 0 0);
-  --sidebar: oklch(0.205 0 0);
-  --sidebar-foreground: oklch(0.985 0 0);
-  --sidebar-primary: oklch(0.488 0.243 264.376);
-  --sidebar-primary-foreground: oklch(0.985 0 0);
-  --sidebar-accent: oklch(0.269 0 0);
-  --sidebar-accent-foreground: oklch(0.985 0 0);
-  --sidebar-border: oklch(1 0 0 / 10%);
-  --sidebar-ring: oklch(0.556 0 0);
+  --sidebar: oklch(0.215 0.006 60);
+  --sidebar-foreground: oklch(0.93 0.006 80);
+  --sidebar-primary: var(--brand);
+  --sidebar-primary-foreground: var(--brand-foreground);
+  --sidebar-accent: oklch(0.265 0.007 60);
+  --sidebar-accent-foreground: oklch(0.93 0.006 80);
+  --sidebar-border: oklch(0.31 0.007 60);
+  --sidebar-ring: var(--brand);
 }
 
 @layer base {

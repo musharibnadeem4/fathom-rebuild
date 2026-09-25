@@ -207,7 +207,7 @@ function BulletSection({
               <span
                 className={cn(
                   "mt-1.5 size-1.5 shrink-0 rounded-full",
-                  tone === "caution" ? "bg-amber-500/70" : "bg-brand/60",
+                  tone === "caution" ? "bg-flag/70" : "bg-brand/60",
                 )}
                 aria-hidden
               />

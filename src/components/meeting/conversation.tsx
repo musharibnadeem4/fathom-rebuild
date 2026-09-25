@@ -105,13 +105,13 @@ export function ConversationSection({
                             type="button"
                             onClick={() => onJump(flag.timestampMs)}
                             title={flag.detail}
-                            className="flex w-full items-start gap-2 rounded-lg bg-amber-50 px-2.5 py-1.5 text-left text-xs text-amber-900 transition-colors hover:bg-amber-100 dark:bg-amber-500/10 dark:text-amber-200 dark:hover:bg-amber-500/15"
+                            className="flex w-full items-start gap-2 rounded-lg bg-flag-soft px-2.5 py-1.5 text-left text-xs text-flag-soft-foreground transition-colors hover:bg-flag-soft-hover"
                           >
                             <Icon className="mt-px size-3.5 shrink-0" />
                             <span className="min-w-0 flex-1">
                               <span className="font-semibold">{meta.label}:</span> {flag.label}
                             </span>
-                            <span className="shrink-0 tabular-nums opacity-70">
+                            <span className="shrink-0 tabular-nums">
                               {formatTimestamp(flag.timestampMs)}
                             </span>
                           </button>

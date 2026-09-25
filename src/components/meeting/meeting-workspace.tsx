@@ -255,7 +255,7 @@ export function MeetingWorkspace({
                       )}
                     >
                       <span className="line-clamp-2">{chapter.title}</span>
-                      <span className="mt-0.5 block tabular-nums opacity-70">
+                      <span className="mt-0.5 block tabular-nums text-muted-foreground">
                         {formatTimestamp(chapter.startMs)}
                       </span>
                     </a>
@@ -277,7 +277,7 @@ export function MeetingWorkspace({
                   return (
                     <p
                       key={flag.id}
-                      className="mt-3 flex items-start gap-2 text-xs text-amber-800 dark:text-amber-300"
+                      className="mt-3 flex items-start gap-2 text-xs text-flag-soft-foreground"
                     >
                       <Icon className="mt-px size-3.5 shrink-0" />
                       {flag.detail}
