@@ -144,6 +144,7 @@ export function ConversationSection({
                 {group.lines.map(({ line, index }) => (
                   <TranscriptRow
                     key={line.id}
+                    index={index}
                     line={line}
                     active={index === activeLineIndex}
                     onSeek={onSeekLine}
@@ -160,11 +161,13 @@ export function ConversationSection({
 }
 
 function TranscriptRow({
+  index,
   line,
   active,
   onSeek,
   registerRef,
 }: {
+  index: number;
   line: TranscriptLine;
   active: boolean;
   onSeek: (ms: number) => void;
@@ -173,6 +176,7 @@ function TranscriptRow({
   return (
     <div
       ref={registerRef}
+      data-line-index={index}
       role="button"
       tabIndex={0}
       onClick={() => onSeek(line.startMs)}

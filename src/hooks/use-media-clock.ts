@@ -30,8 +30,11 @@ export function useMediaClock(
     const media = mediaRef.current;
     if (!media) return;
 
+    // Rounded to whole ms (the precision timestamps are stored at): a seek to
+    // 262580ms can read back as 262.579999…s, which would otherwise resolve
+    // to the *previous* transcript line.
     const emit = () => {
-      onTickRef.current?.(media.currentTime * 1000);
+      onTickRef.current?.(Math.round(media.currentTime * 1000));
     };
 
     const tick = () => {

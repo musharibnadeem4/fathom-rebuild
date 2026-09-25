@@ -60,6 +60,35 @@ function percentOf(ms: number, durationSeconds: number): number {
   return Math.min(100, Math.max(0, (ms / 1000 / durationSeconds) * 100));
 }
 
+// Flags closer than this on the rendered track would stack on top of each
+// other (hiding all but one), so they're merged into a single cluster marker.
+const MIN_MARKER_GAP_PX = 14;
+
+function clusterFlags(
+  flags: CoachingFlagMarker[],
+  durationSeconds: number,
+  trackWidthPx: number,
+): { flags: CoachingFlagMarker[]; leftPercent: number }[] {
+  const sorted = [...flags].sort((a, b) => a.timestampMs - b.timestampMs);
+  const clusters: { flags: CoachingFlagMarker[]; lastPercent: number }[] = [];
+  for (const flag of sorted) {
+    const percent = percentOf(flag.timestampMs, durationSeconds);
+    const last = clusters[clusters.length - 1];
+    if (last && ((percent - last.lastPercent) / 100) * trackWidthPx < MIN_MARKER_GAP_PX) {
+      last.flags.push(flag);
+      last.lastPercent = percent;
+    } else {
+      clusters.push({ flags: [flag], lastPercent: percent });
+    }
+  }
+  return clusters.map((cluster) => ({
+    flags: cluster.flags,
+    leftPercent:
+      cluster.flags.reduce((sum, f) => sum + percentOf(f.timestampMs, durationSeconds), 0) /
+      cluster.flags.length,
+  }));
+}
+
 export function DockedPlayer({
   kind,
   src,
@@ -112,6 +141,16 @@ export function DockedPlayer({
   );
 
   const { isPlaying, seekTo } = useMediaClock(mediaRef, handleTick);
+
+  const [trackWidth, setTrackWidth] = useState(0);
+  useEffect(() => {
+    const track = trackRef.current;
+    if (!track) return;
+    const observer = new ResizeObserver(() => setTrackWidth(track.getBoundingClientRect().width));
+    observer.observe(track);
+    return () => observer.disconnect();
+  }, []);
+  const flagClusters = clusterFlags(flags, duration, trackWidth);
 
   useEffect(() => {
     const media = mediaRef.current;
@@ -240,40 +279,49 @@ export function DockedPlayer({
           >
             0:00
           </span>
-          <div
-            ref={trackRef}
-            onClick={handleTrackClick}
-            role="slider"
-            aria-label="Seek"
-            aria-valuemin={0}
-            aria-valuemax={Math.round(duration)}
-            aria-valuenow={0}
-            className="relative h-1.5 flex-1 cursor-pointer rounded-full bg-border"
-          >
+          <div className="relative flex-1">
             <div
-              ref={fillRef}
-              className="pointer-events-none absolute inset-y-0 left-0 rounded-full bg-brand"
-              style={{ width: "0%" }}
-            />
-            {chapters
-              .filter((chapter) => chapter.startMs > 0)
-              .map((chapter) => (
-                <div
-                  key={chapter.id}
-                  aria-hidden
-                  title={chapter.title}
-                  className="pointer-events-none absolute -inset-y-1 w-px -translate-x-1/2 bg-foreground/40"
-                  style={{ left: `${percentOf(chapter.startMs, duration)}%` }}
+              ref={trackRef}
+              onClick={handleTrackClick}
+              role="slider"
+              aria-label="Seek"
+              aria-valuemin={0}
+              aria-valuemax={Math.round(duration)}
+              aria-valuenow={0}
+              className="relative h-1.5 cursor-pointer rounded-full bg-border"
+            >
+              <div
+                ref={fillRef}
+                className="pointer-events-none absolute inset-y-0 left-0 rounded-full bg-brand"
+                style={{ width: "0%" }}
+              />
+              {chapters
+                .filter((chapter) => chapter.startMs > 0)
+                .map((chapter) => (
+                  <div
+                    key={chapter.id}
+                    aria-hidden
+                    title={chapter.title}
+                    className="pointer-events-none absolute -inset-y-1 w-px -translate-x-1/2 bg-foreground/40"
+                    style={{ left: `${percentOf(chapter.startMs, duration)}%` }}
+                  />
+                ))}
+            </div>
+            {/* Markers live in a sibling layer, not inside the track: React
+                bubbles events through portals along the component tree, so a
+                popover rendered from inside the track would feed every click
+                in it (including "Jump to") to the track's seek-to-cursor
+                handler. */}
+            <div className="pointer-events-none absolute inset-0">
+              {flagClusters.map((cluster) => (
+                <FlagMarker
+                  key={cluster.flags.map((f) => f.id).join("-")}
+                  flags={cluster.flags}
+                  leftPercent={cluster.leftPercent}
+                  onJump={onJump}
                 />
               ))}
-            {flags.map((flag) => (
-              <FlagMarker
-                key={flag.id}
-                flag={flag}
-                leftPercent={percentOf(flag.timestampMs, duration)}
-                onJump={onJump}
-              />
-            ))}
+            </div>
           </div>
           <span className="w-10 shrink-0 text-right text-xs tabular-nums text-muted-foreground">
             {duration ? formatTimestamp(duration * 1000) : "0:00"}
@@ -311,17 +359,19 @@ export function DockedPlayer({
 }
 
 function FlagMarker({
-  flag,
+  flags,
   leftPercent,
   onJump,
 }: {
-  flag: CoachingFlagMarker;
+  flags: CoachingFlagMarker[];
   leftPercent: number;
   onJump: (ms: number) => void;
 }) {
-  const meta = FLAG_KIND_META[flag.kind];
-  const Icon = meta.icon;
   const [open, setOpen] = useState(false);
+  const single = flags.length === 1 ? flags[0] : null;
+  const ariaLabel = single
+    ? `${FLAG_KIND_META[single.kind].label}: ${single.label}`
+    : `${flags.length} coaching flags: ${flags.map((f) => f.label).join("; ")}`;
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
@@ -329,35 +379,57 @@ function FlagMarker({
         render={
           <button
             type="button"
-            aria-label={`${meta.label}: ${flag.label}`}
-            onClick={(event: React.MouseEvent) => event.stopPropagation()}
-            className="absolute -top-1 z-10 flex size-2.5 -translate-x-1/2 items-center justify-center rounded-full bg-amber-500 ring-2 ring-background transition-transform hover:scale-150"
+            aria-label={ariaLabel}
+            className={cn(
+              "pointer-events-auto absolute z-10 flex -translate-x-1/2 items-center justify-center rounded-full bg-amber-500 ring-2 ring-background transition-transform hover:scale-125",
+              single ? "-top-1 size-2.5" : "-top-[5px] size-4 text-[9px] font-bold text-white",
+            )}
             style={{ left: `${leftPercent}%` }}
-          />
+          >
+            {single ? null : flags.length}
+          </button>
         }
       />
-      <DialogContent className="sm:max-w-sm">
+      <DialogContent className="max-h-[calc(100vh-10rem)] overflow-y-auto sm:max-w-sm">
         <DialogHeader>
           <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
             <History className="size-3" />
             Post-call analysis
           </div>
-          <DialogTitle className="flex items-start gap-2 text-base font-semibold">
-            <Icon className="mt-0.5 size-4 shrink-0 text-amber-600" />
-            <span>{flag.label}</span>
+          <DialogTitle className="text-base font-semibold">
+            {single ? single.label : `${flags.length} flags close together`}
           </DialogTitle>
         </DialogHeader>
-        <p className="text-sm leading-relaxed text-muted-foreground">{flag.detail}</p>
-        <button
-          type="button"
-          onClick={() => {
-            onJump(flag.timestampMs);
-            setOpen(false);
-          }}
-          className="self-start text-sm font-medium text-brand hover:underline"
-        >
-          Jump to {formatTimestamp(flag.timestampMs)}
-        </button>
+        <ul className="flex flex-col gap-4">
+          {flags.map((flag) => {
+            const meta = FLAG_KIND_META[flag.kind];
+            const Icon = meta.icon;
+            return (
+              <li key={flag.id} className="flex gap-2">
+                <Icon className="mt-0.5 size-4 shrink-0 text-amber-600" />
+                <div className="min-w-0">
+                  <p className="text-xs font-medium text-muted-foreground">{meta.label}</p>
+                  {!single && (
+                    <p className="text-sm font-semibold text-foreground">{flag.label}</p>
+                  )}
+                  <p className="mt-1 text-sm leading-relaxed text-muted-foreground">
+                    {flag.detail}
+                  </p>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      onJump(flag.timestampMs);
+                      setOpen(false);
+                    }}
+                    className="mt-1.5 text-sm font-medium text-brand hover:underline"
+                  >
+                    Jump to {formatTimestamp(flag.timestampMs)}
+                  </button>
+                </div>
+              </li>
+            );
+          })}
+        </ul>
       </DialogContent>
     </Dialog>
   );

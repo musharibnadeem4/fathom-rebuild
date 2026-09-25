@@ -25,6 +25,27 @@ import { findActiveIndex, useMediaSync } from "@/hooks/use-media-sync";
 import { useElementSize } from "@/hooks/use-element-size";
 import { formatTimestamp } from "@/lib/format";
 
+// Breathing room between a scrolled-to transcript line and the sticky site
+// header above / docked player below.
+const SCROLL_CLEARANCE_BUFFER_PX = 20;
+
+// Scrolls `el` into the band of the viewport that's actually visible — below
+// the sticky site header and above the fixed dock. Both are measured at call
+// time (the dock wraps to two rows on narrow screens, so its height varies),
+// rather than trusting scrollIntoView, which knows about neither.
+function scrollIntoVisibleBand(el: HTMLElement, dock: HTMLElement | null) {
+  const headerBottom =
+    document.querySelector("[data-site-header]")?.getBoundingClientRect().bottom ?? 0;
+  const dockTop = dock?.getBoundingClientRect().top ?? window.innerHeight;
+  const bandTop = headerBottom + SCROLL_CLEARANCE_BUFFER_PX;
+  const bandHeight = dockTop - SCROLL_CLEARANCE_BUFFER_PX - bandTop;
+  const rect = el.getBoundingClientRect();
+  // Center it when it fits; otherwise pin its start so the beginning of a
+  // long utterance is what's visible.
+  const targetTop = rect.height >= bandHeight ? bandTop : bandTop + (bandHeight - rect.height) / 2;
+  window.scrollTo({ top: window.scrollY + rect.top - targetTop, behavior: "smooth" });
+}
+
 export function MeetingWorkspace({
   meetingId,
   title,
@@ -142,15 +163,17 @@ export function MeetingWorkspace({
 
   useEffect(() => {
     if (!reveal) return;
-    lineRefs.current.get(reveal.index)?.scrollIntoView({ behavior: "smooth", block: "center" });
-  }, [reveal]);
+    const el = lineRefs.current.get(reveal.index);
+    if (el) scrollIntoVisibleBand(el, dockRef.current);
+  }, [reveal, dockRef]);
 
   // Follow mode keeps the playing chapter open by deriving it at render time
   // (see visibleKeys), so this effect only has to scroll.
   useEffect(() => {
     if (!follow || activeIndex < 0) return;
-    lineRefs.current.get(activeIndex)?.scrollIntoView({ behavior: "smooth", block: "center" });
-  }, [follow, activeIndex]);
+    const el = lineRefs.current.get(activeIndex);
+    if (el) scrollIntoVisibleBand(el, dockRef.current);
+  }, [follow, activeIndex, dockRef]);
 
   useEffect(() => {
     if (!askOpen) return;
