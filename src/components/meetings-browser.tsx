@@ -1,43 +1,54 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import Link from "next/link";
-import { Clock, Loader2, Plus, Search, TriangleAlert, Users, Video } from "lucide-react";
+import { cn } from "cn";
+import {
+  ArrowRight,
+  Circle,
+  CircleDashed,
+  Loader2,
+  Plus,
+  Search,
+  TriangleAlert,
+  Video,
+} from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
-import {
-  Card,
-  CardContent,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
-import { formatDuration } from "@/lib/format";
+import { speakerColor } from "@/components/meeting/speaker-colors";
+import { TalkTimeBar, type SpeakerSummary } from "@/components/meeting/talk-time-bar";
 
-export type MeetingCardData = {
+export type MeetingListItem = {
   id: string;
   title: string;
   status: "pending" | "processing" | "ready" | "failed";
+  groupLabel: string;
   dateLabel: string;
   durationLabel: string;
-  participantInitials: string[];
-  snippet: string;
+  speakers: SpeakerSummary[];
+  snippet: string | null;
+  purpose: string | null;
+  takeaways: string[];
+  actionItems: { id: string; text: string; ownerName: string; isLowConfidence: boolean }[];
 };
 
-export type MeetingStats = {
-  totalMeetings: number;
-  totalParticipants: number;
-  totalSeconds: number;
-};
+const PREVIEW_MEDIA_QUERY = "(min-width: 1024px)";
+const PREVIEW_ACTION_ITEM_LIMIT = 5;
+
+function isInProgress(status: MeetingListItem["status"]) {
+  return status === "pending" || status === "processing";
+}
 
 export function MeetingsBrowser({
   meetings,
-  stats,
+  totalRecordedLabel,
 }: {
-  meetings: MeetingCardData[];
-  stats: MeetingStats;
+  meetings: MeetingListItem[];
+  totalRecordedLabel: string;
 }) {
   const [query, setQuery] = useState("");
+  const [selectedId, setSelectedId] = useState<string | null>(meetings[0]?.id ?? null);
+  const rowRefs = useRef(new Map<string, HTMLAnchorElement>());
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -45,86 +56,108 @@ export function MeetingsBrowser({
     return meetings.filter((meeting) => meeting.title.toLowerCase().includes(q));
   }, [meetings, query]);
 
+  const groups = useMemo(() => {
+    const result: { label: string; items: MeetingListItem[] }[] = [];
+    for (const meeting of filtered) {
+      const last = result[result.length - 1];
+      if (last && last.label === meeting.groupLabel) last.items.push(meeting);
+      else result.push({ label: meeting.groupLabel, items: [meeting] });
+    }
+    return result;
+  }, [filtered]);
+
+  const selected = filtered.find((m) => m.id === selectedId) ?? filtered[0] ?? null;
+
+  const moveSelection = (delta: number) => {
+    if (!selected) return;
+    const index = filtered.findIndex((m) => m.id === selected.id);
+    const next = filtered[Math.min(filtered.length - 1, Math.max(0, index + delta))];
+    if (!next) return;
+    setSelectedId(next.id);
+    rowRefs.current.get(next.id)?.focus();
+  };
+
   return (
     <main className="flex-1">
-      {/* Hero band — carries real weight even with a small dataset: eyebrow,
-          heading, live stats, and search, on a subtly textured backdrop. */}
-      <div className="relative overflow-hidden border-b border-border/70">
-        <div
-          aria-hidden
-          className="absolute inset-0 -z-10 bg-[radial-gradient(circle_at_1px_1px,var(--color-border)_1px,transparent_0)] bg-[size:24px_24px] [mask-image:radial-gradient(ellipse_70%_60%_at_50%_0%,black_30%,transparent_100%)]"
-        />
-        <div
-          aria-hidden
-          className="absolute -top-24 left-1/2 -z-10 h-72 w-[36rem] -translate-x-1/2 rounded-full bg-brand/15 blur-3xl"
-        />
-
-        <div className="mx-auto max-w-6xl px-6 pb-8 pt-12">
-          <p className="text-xs font-semibold uppercase tracking-widest text-brand">
-            Meeting workspace
-          </p>
-          <div className="mt-2 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
-            <div>
-              <h1 className="text-4xl font-semibold tracking-tight text-foreground">
-                Meetings
-              </h1>
-              <p className="mt-1.5 max-w-md text-sm text-muted-foreground">
-                Every call transcribed, summarized, and ready to search — the
-                moment it&apos;s processed.
-              </p>
-            </div>
-            <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:items-center">
-              <div className="relative w-full sm:w-72">
-                <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
-                <Input
-                  value={query}
-                  onChange={(event) => setQuery(event.target.value)}
-                  placeholder="Search meetings by title…"
-                  className="h-11 rounded-xl pl-9 text-sm shadow-sm"
-                />
-              </div>
-              <Button
-                size="lg"
-                className="h-11 shrink-0 rounded-xl px-4"
-                nativeButton={false}
-                render={<Link href="/meetings/new" />}
-              >
-                <Plus className="size-4" />
-                Add recording
-              </Button>
-            </div>
+      <div className="border-b border-border/70">
+        <div className="mx-auto flex max-w-6xl flex-col gap-4 px-6 py-6 sm:flex-row sm:items-end sm:justify-between">
+          <div>
+            <h1 className="text-2xl font-semibold tracking-tight text-foreground">Meetings</h1>
+            <p className="mt-1 text-sm text-muted-foreground">
+              {meetings.length} {meetings.length === 1 ? "meeting" : "meetings"} ·{" "}
+              {totalRecordedLabel} recorded
+            </p>
           </div>
-
-          <div className="mt-8 grid grid-cols-3 gap-3 sm:max-w-xl">
-            <StatTile
-              icon={<Video className="size-4" />}
-              value={stats.totalMeetings}
-              label={stats.totalMeetings === 1 ? "Meeting" : "Meetings"}
-            />
-            <StatTile
-              icon={<Users className="size-4" />}
-              value={stats.totalParticipants}
-              label="Participants"
-            />
-            <StatTile
-              icon={<Clock className="size-4" />}
-              value={formatDuration(stats.totalSeconds)}
-              label="Recorded"
-            />
+          <div className="flex w-full gap-2 sm:w-auto">
+            <div className="relative flex-1 sm:w-64 sm:flex-none">
+              <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+              <Input
+                value={query}
+                onChange={(event) => setQuery(event.target.value)}
+                placeholder="Search by title…"
+                className="h-9 pl-9"
+              />
+            </div>
+            <Button
+              size="lg"
+              className="h-9 shrink-0 px-3"
+              nativeButton={false}
+              render={<Link href="/meetings/new" />}
+            >
+              <Plus className="size-4" />
+              Add recording
+            </Button>
           </div>
         </div>
       </div>
 
-      <div className="mx-auto max-w-6xl px-6 py-10">
+      <div className="mx-auto max-w-6xl px-6 py-6">
         {meetings.length === 0 ? (
           <EmptyState kind="no-meetings" />
         ) : filtered.length === 0 ? (
           <EmptyState kind="no-results" query={query} onClear={() => setQuery("")} />
         ) : (
-          <div className="flex flex-wrap gap-4">
-            {filtered.map((meeting) => (
-              <MeetingCard key={meeting.id} meeting={meeting} />
-            ))}
+          <div className="grid grid-cols-1 gap-6 lg:grid-cols-[minmax(0,400px)_minmax(0,1fr)]">
+            <div
+              role="listbox"
+              aria-label="Meetings"
+              onKeyDown={(event) => {
+                if (event.key === "ArrowDown") {
+                  event.preventDefault();
+                  moveSelection(1);
+                } else if (event.key === "ArrowUp") {
+                  event.preventDefault();
+                  moveSelection(-1);
+                }
+              }}
+              className="flex flex-col"
+            >
+              {groups.map((group) => (
+                <div key={group.label} className="mb-3">
+                  <p className="px-3 pb-1.5 pt-2 text-[11px] font-semibold uppercase tracking-widest text-muted-foreground">
+                    {group.label}
+                  </p>
+                  <div className="flex flex-col gap-0.5">
+                    {group.items.map((meeting) => (
+                      <MeetingRow
+                        key={meeting.id}
+                        meeting={meeting}
+                        selected={meeting.id === selected?.id}
+                        onSelect={() => setSelectedId(meeting.id)}
+                        registerRef={(el) => {
+                          if (el) rowRefs.current.set(meeting.id, el);
+                          else rowRefs.current.delete(meeting.id);
+                        }}
+                      />
+                    ))}
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            <div className="hidden lg:block">
+              {selected && <MeetingPreview meeting={selected} />}
+            </div>
           </div>
         )}
       </div>
@@ -132,98 +165,197 @@ export function MeetingsBrowser({
   );
 }
 
-function StatTile({
-  icon,
-  value,
-  label,
+function MeetingRow({
+  meeting,
+  selected,
+  onSelect,
+  registerRef,
 }: {
-  icon: React.ReactNode;
-  value: number | string;
-  label: string;
+  meeting: MeetingListItem;
+  selected: boolean;
+  onSelect: () => void;
+  registerRef: (el: HTMLAnchorElement | null) => void;
 }) {
-  return (
-    <div className="rounded-xl border border-border bg-card px-3.5 py-3 shadow-sm">
-      <div className="flex items-center gap-1.5 text-brand">{icon}</div>
-      <p className="mt-2 text-xl font-semibold leading-none tracking-tight text-foreground">
-        {value}
-      </p>
-      <p className="mt-1 text-xs text-muted-foreground">{label}</p>
-    </div>
-  );
-}
-
-function MeetingCard({ meeting }: { meeting: MeetingCardData }) {
-  const visibleInitials = meeting.participantInitials.slice(0, 4);
-  const overflowCount = meeting.participantInitials.length - visibleInitials.length;
-  const isProcessing = meeting.status === "pending" || meeting.status === "processing";
-  const isFailed = meeting.status === "failed";
+  const inProgress = isInProgress(meeting.status);
+  const failed = meeting.status === "failed";
 
   return (
     <Link
+      ref={registerRef}
       href={`/meetings/${meeting.id}`}
-      className="group block w-full focus:outline-none sm:w-[calc(50%-0.5rem)] lg:w-[calc(33.333%-0.667rem)]"
+      role="option"
+      aria-selected={selected}
+      // On wide screens the first click previews and clicking the already
+      // selected row opens it; below that there's no preview pane, so the
+      // row is just a link.
+      onClick={(event) => {
+        if (event.metaKey || event.ctrlKey || event.shiftKey) return;
+        if (window.matchMedia(PREVIEW_MEDIA_QUERY).matches && !selected) {
+          event.preventDefault();
+          onSelect();
+        }
+      }}
+      className={cn(
+        "block rounded-xl px-3 py-3 outline-none transition-colors focus-visible:ring-2 focus-visible:ring-ring",
+        "hover:bg-muted",
+        selected && "lg:bg-brand-soft/60 lg:ring-1 lg:ring-brand/20 lg:hover:bg-brand-soft/60",
+      )}
     >
-      <Card className="relative h-full gap-3 overflow-hidden border-border/80 py-5 shadow-sm transition-all duration-150 hover:-translate-y-0.5 hover:border-brand/40 hover:shadow-lg hover:shadow-brand/5 focus-visible:ring-2 focus-visible:ring-ring">
-        <span
-          aria-hidden
-          className="absolute inset-y-0 left-0 w-1 bg-brand opacity-0 transition-opacity group-hover:opacity-100"
-        />
-        <CardHeader className="gap-2">
-          <div className="flex items-start justify-between gap-2">
-            <CardTitle className="line-clamp-2 text-[15px] font-semibold leading-snug">
-              {meeting.title}
-            </CardTitle>
-            {isProcessing ? (
-              <Badge className="shrink-0 gap-1 bg-brand-soft font-medium text-brand-soft-foreground">
-                <Loader2 className="size-3 animate-spin" />
-                Processing
-              </Badge>
-            ) : isFailed ? (
-              <Badge className="shrink-0 gap-1 bg-destructive/10 font-medium text-destructive">
-                <TriangleAlert className="size-3" />
-                Failed
-              </Badge>
-            ) : (
-              <Badge
-                variant="secondary"
-                className="shrink-0 bg-muted font-medium text-muted-foreground"
-              >
-                {meeting.durationLabel}
-              </Badge>
-            )}
-          </div>
-          <p className="text-xs text-muted-foreground">{meeting.dateLabel}</p>
-        </CardHeader>
-        <CardContent className="flex flex-col gap-3 border-t border-border/70 pt-3">
-          <p className="line-clamp-3 text-sm leading-relaxed text-muted-foreground">
-            {isProcessing
-              ? "Transcribing and analyzing this recording…"
-              : isFailed
-                ? "Processing didn't complete for this recording."
-                : meeting.snippet}
-          </p>
-          {visibleInitials.length > 0 && (
-            <div className="flex items-center">
-              <div className="flex -space-x-2">
-                {visibleInitials.map((initial, index) => (
-                  <span
-                    key={`${initial}-${index}`}
-                    className="flex size-6 items-center justify-center rounded-full border-2 border-card bg-brand-soft text-[10px] font-semibold text-brand-soft-foreground"
-                  >
-                    {initial}
-                  </span>
-                ))}
-                {overflowCount > 0 && (
-                  <span className="flex size-6 items-center justify-center rounded-full border-2 border-card bg-muted text-[10px] font-semibold text-muted-foreground">
-                    +{overflowCount}
-                  </span>
+      <div className="flex items-start justify-between gap-3">
+        <p className="min-w-0 truncate text-sm font-medium text-foreground">{meeting.title}</p>
+        {inProgress ? (
+          <span className="inline-flex shrink-0 items-center gap-1 text-xs font-medium text-brand">
+            <Loader2 className="size-3 animate-spin" />
+            Processing
+          </span>
+        ) : failed ? (
+          <span className="inline-flex shrink-0 items-center gap-1 text-xs font-medium text-destructive">
+            <TriangleAlert className="size-3" />
+            Failed
+          </span>
+        ) : (
+          <span className="shrink-0 text-xs tabular-nums text-muted-foreground">
+            {meeting.durationLabel}
+          </span>
+        )}
+      </div>
+      {meeting.snippet && (
+        <p className="mt-1 line-clamp-1 text-xs text-muted-foreground">{meeting.snippet}</p>
+      )}
+      <div className="mt-2 flex items-center gap-2 text-xs text-muted-foreground">
+        {meeting.speakers.length > 0 && (
+          <div className="flex -space-x-1.5">
+            {meeting.speakers.slice(0, 4).map((speaker) => (
+              <span
+                key={speaker.name}
+                className={cn(
+                  "flex size-5 items-center justify-center rounded-full border-2 border-background text-[9px] font-semibold",
+                  speakerColor(speaker.colorIndex).avatar,
                 )}
-              </div>
-            </div>
-          )}
-        </CardContent>
-      </Card>
+              >
+                {speaker.initial}
+              </span>
+            ))}
+          </div>
+        )}
+        <span>{meeting.dateLabel}</span>
+      </div>
     </Link>
+  );
+}
+
+function MeetingPreview({ meeting }: { meeting: MeetingListItem }) {
+  const inProgress = isInProgress(meeting.status);
+  const failed = meeting.status === "failed";
+  const visibleItems = meeting.actionItems.slice(0, PREVIEW_ACTION_ITEM_LIMIT);
+  const hiddenCount = meeting.actionItems.length - visibleItems.length;
+
+  return (
+    <article className="sticky top-24 flex max-h-[calc(100vh-7.5rem)] flex-col overflow-hidden rounded-2xl border border-border bg-card shadow-sm">
+      <div className="border-b border-border/70 px-6 py-5">
+        <p className="text-xs text-muted-foreground">
+          {meeting.dateLabel}
+          {!inProgress && !failed && <> · {meeting.durationLabel}</>}
+        </p>
+        <h2 className="mt-1 text-xl font-semibold tracking-tight text-foreground">
+          {meeting.title}
+        </h2>
+      </div>
+
+      <div className="flex-1 overflow-y-auto px-6 py-5">
+        {inProgress ? (
+          <div className="flex items-center gap-3 rounded-xl bg-brand-soft/60 px-4 py-4 text-sm text-brand-soft-foreground">
+            <Loader2 className="size-4 shrink-0 animate-spin" />
+            Still transcribing and analyzing — the summary will appear here once it&apos;s ready.
+          </div>
+        ) : failed ? (
+          <div className="flex items-center gap-3 rounded-xl bg-destructive/10 px-4 py-4 text-sm text-destructive">
+            <TriangleAlert className="size-4 shrink-0" />
+            Processing didn&apos;t complete for this recording.
+          </div>
+        ) : (
+          <div className="flex flex-col gap-6">
+            {meeting.speakers.length > 0 && <TalkTimeBar speakers={meeting.speakers} />}
+
+            {meeting.purpose && (
+              <p className="text-[15px] leading-relaxed text-foreground">{meeting.purpose}</p>
+            )}
+
+            {meeting.takeaways.length > 0 && (
+              <PreviewSection title="Key takeaways">
+                <ul className="flex flex-col gap-1.5">
+                  {meeting.takeaways.map((takeaway, index) => (
+                    <li key={index} className="flex gap-2 text-sm leading-relaxed text-foreground">
+                      <span aria-hidden className="mt-2 size-1.5 shrink-0 rounded-full bg-brand/60" />
+                      {takeaway}
+                    </li>
+                  ))}
+                </ul>
+              </PreviewSection>
+            )}
+
+            <PreviewSection title={`Action items · ${meeting.actionItems.length}`}>
+              {visibleItems.length === 0 ? (
+                <p className="text-sm text-muted-foreground">None detected.</p>
+              ) : (
+                <ul className="flex flex-col gap-2.5">
+                  {visibleItems.map((item) => {
+                    const Icon = item.isLowConfidence ? CircleDashed : Circle;
+                    return (
+                      <li key={item.id} className="flex gap-2.5 text-sm">
+                        <Icon
+                          className={cn(
+                            "mt-0.5 size-4 shrink-0",
+                            item.isLowConfidence ? "text-muted-foreground" : "text-brand",
+                          )}
+                        />
+                        <span className="min-w-0">
+                          <span
+                            className={
+                              item.isLowConfidence ? "text-muted-foreground" : "text-foreground"
+                            }
+                          >
+                            {item.text}
+                          </span>
+                          <span className="block text-xs text-muted-foreground">
+                            {item.ownerName}
+                          </span>
+                        </span>
+                      </li>
+                    );
+                  })}
+                  {hiddenCount > 0 && (
+                    <li className="pl-6.5 text-xs text-muted-foreground">+{hiddenCount} more</li>
+                  )}
+                </ul>
+              )}
+            </PreviewSection>
+          </div>
+        )}
+      </div>
+
+      <div className="border-t border-border/70 px-6 py-4">
+        <Button
+          className="h-9 px-3.5"
+          nativeButton={false}
+          render={<Link href={`/meetings/${meeting.id}`} />}
+        >
+          Open meeting
+          <ArrowRight className="size-4" />
+        </Button>
+      </div>
+    </article>
+  );
+}
+
+function PreviewSection({ title, children }: { title: string; children: React.ReactNode }) {
+  return (
+    <section>
+      <h3 className="mb-2.5 text-[11px] font-semibold uppercase tracking-widest text-muted-foreground">
+        {title}
+      </h3>
+      {children}
+    </section>
   );
 }
 

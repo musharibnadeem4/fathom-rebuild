@@ -1,14 +1,15 @@
 import { db } from "@/db";
-import { formatDuration, formatDate, truncate } from "@/lib/format";
+import { dayBucketLabel, formatDate, formatDuration, truncate } from "@/lib/format";
 import { SiteHeader } from "@/components/site-header";
-import {
-  MeetingsBrowser,
-  type MeetingCardData,
-  type MeetingStats,
-} from "@/components/meetings-browser";
+import { MeetingsBrowser, type MeetingListItem } from "@/components/meetings-browser";
+
+// The list reads live DB state (new uploads, processing status) and computes
+// relative day labels, so it must not be prerendered at build time.
+export const dynamic = "force-dynamic";
 
 type GeneralSummaryContent = {
   purpose?: string;
+  takeaways?: string[];
 };
 
 export default async function Home() {
@@ -19,39 +20,48 @@ export default async function Home() {
       summaries: {
         where: (summariesTable, { eq }) => eq(summariesTable.template, "general"),
       },
+      actionItems: {
+        columns: { id: true, text: true, ownerName: true, isLowConfidence: true },
+      },
     },
   });
 
-  const meetings: MeetingCardData[] = rows.map((meeting) => {
-    const generalSummary = meeting.summaries[0]?.content as
-      | GeneralSummaryContent
-      | undefined;
-
+  const now = new Date();
+  const meetings: MeetingListItem[] = rows.map((meeting) => {
+    const general = meeting.summaries[0]?.content as GeneralSummaryContent | undefined;
     return {
       id: meeting.id,
       title: meeting.title,
       status: meeting.status,
+      groupLabel: dayBucketLabel(meeting.recordedAt, now),
       dateLabel: formatDate(meeting.recordedAt),
       durationLabel: formatDuration(meeting.durationSeconds),
-      participantInitials: meeting.participants.map(
-        (p) => p.speakerLabel ?? p.name.charAt(0).toUpperCase(),
-      ),
-      snippet: generalSummary?.purpose
-        ? truncate(generalSummary.purpose, 140)
-        : "No summary available yet.",
+      speakers: meeting.participants.map((p, index) => ({
+        name: p.name,
+        initial: p.speakerLabel ?? p.name.charAt(0).toUpperCase(),
+        colorIndex: index,
+        talkTimeSeconds: p.talkTimeSeconds,
+      })),
+      snippet: general?.purpose ? truncate(general.purpose, 110) : null,
+      purpose: general?.purpose ?? null,
+      takeaways: general?.takeaways ?? [],
+      actionItems: [...meeting.actionItems]
+        .sort((a, b) => Number(a.isLowConfidence) - Number(b.isLowConfidence))
+        .map((item) => ({
+          id: item.id,
+          text: item.text,
+          ownerName: item.ownerName ?? "Unassigned",
+          isLowConfidence: item.isLowConfidence,
+        })),
     };
   });
 
-  const stats: MeetingStats = {
-    totalMeetings: rows.length,
-    totalParticipants: rows.reduce((sum, m) => sum + m.participants.length, 0),
-    totalSeconds: rows.reduce((sum, m) => sum + (m.durationSeconds ?? 0), 0),
-  };
+  const totalSeconds = rows.reduce((sum, m) => sum + (m.durationSeconds ?? 0), 0);
 
   return (
     <div className="flex min-h-screen flex-1 flex-col bg-background">
       <SiteHeader />
-      <MeetingsBrowser meetings={meetings} stats={stats} />
+      <MeetingsBrowser meetings={meetings} totalRecordedLabel={formatDuration(totalSeconds)} />
     </div>
   );
 }

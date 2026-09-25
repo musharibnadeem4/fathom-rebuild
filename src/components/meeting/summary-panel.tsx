@@ -121,7 +121,7 @@ function GeneralView({ data }: { data: GeneralSummary }) {
     <div className="flex flex-col gap-5">
       <div>
         <SectionLabel>Purpose</SectionLabel>
-        <p className="mt-1.5 text-sm leading-relaxed text-foreground">
+        <p className="mt-1.5 text-[17px] leading-relaxed text-foreground">
           {data.purpose || "Not noted."}
         </p>
       </div>

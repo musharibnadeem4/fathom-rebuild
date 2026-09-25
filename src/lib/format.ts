@@ -8,6 +8,17 @@ export function formatDate(date: Date): string {
   return dateFormatter.format(date);
 }
 
+const monthYearFormatter = new Intl.DateTimeFormat("en-US", { month: "long", year: "numeric" });
+
+export function dayBucketLabel(date: Date, now: Date = new Date()): string {
+  const startOfDay = (d: Date) => new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime();
+  const daysAgo = Math.round((startOfDay(now) - startOfDay(date)) / 86_400_000);
+  if (daysAgo <= 0) return "Today";
+  if (daysAgo === 1) return "Yesterday";
+  if (daysAgo < 7) return "Earlier this week";
+  return monthYearFormatter.format(date);
+}
+
 export function formatDuration(totalSeconds: number | null): string {
   if (totalSeconds == null) return "Unknown length";
   const hours = Math.floor(totalSeconds / 3600);

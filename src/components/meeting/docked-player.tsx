@@ -7,9 +7,13 @@ import {
   ArrowUpRight,
   HelpCircle,
   History,
+  LocateFixed,
+  Maximize2,
   Pause,
   Play,
   Scale,
+  Sparkles,
+  X,
 } from "lucide-react";
 import {
   Dialog,
@@ -25,6 +29,7 @@ import { useMediaClock } from "@/hooks/use-media-clock";
 export type ChapterMarker = {
   id: string;
   title: string;
+  summary: string | null;
   startMs: number;
   endMs: number;
 };
@@ -43,7 +48,7 @@ export type CoachingFlagMarker = {
   timestampMs: number;
 };
 
-const FLAG_KIND_META: Record<CoachingFlagKind, { label: string; icon: typeof Scale }> = {
+export const FLAG_KIND_META: Record<CoachingFlagKind, { label: string; icon: typeof Scale }> = {
   talk_time_imbalance: { label: "Talk-time imbalance", icon: Scale },
   unanswered_question: { label: "Unanswered question", icon: HelpCircle },
   objection_detected: { label: "Objection detected", icon: AlertTriangle },
@@ -55,21 +60,34 @@ function percentOf(ms: number, durationSeconds: number): number {
   return Math.min(100, Math.max(0, (ms / 1000 / durationSeconds) * 100));
 }
 
-export function MediaPlayer({
+export function DockedPlayer({
   kind,
   src,
   mediaRef,
+  containerRef,
+  dockHeight,
   chapters,
   flags,
+  follow,
+  onToggleFollow,
+  onOpenAsk,
+  onJump,
 }: {
   kind: "audio" | "video";
   src: string;
   mediaRef: RefObject<HTMLMediaElement | null>;
+  containerRef: RefObject<HTMLDivElement | null>;
+  dockHeight: number;
   chapters: ChapterMarker[];
   flags: CoachingFlagMarker[];
+  follow: boolean;
+  onToggleFollow: () => void;
+  onOpenAsk: () => void;
+  onJump: (ms: number) => void;
 }) {
   const [duration, setDuration] = useState(0);
   const [activeChapterIndex, setActiveChapterIndex] = useState(-1);
+  const [expanded, setExpanded] = useState(false);
   const fillRef = useRef<HTMLDivElement>(null);
   const currentTimeRef = useRef<HTMLSpanElement>(null);
   const trackRef = useRef<HTMLDivElement>(null);
@@ -104,6 +122,15 @@ export function MediaPlayer({
     return () => media.removeEventListener("loadedmetadata", handleLoadedMetadata);
   }, [mediaRef]);
 
+  useEffect(() => {
+    if (!expanded) return;
+    const handleKey = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setExpanded(false);
+    };
+    window.addEventListener("keydown", handleKey);
+    return () => window.removeEventListener("keydown", handleKey);
+  }, [expanded]);
+
   const handleTrackClick = (event: React.MouseEvent<HTMLDivElement>) => {
     const track = trackRef.current;
     if (!track || duration <= 0) return;
@@ -119,45 +146,100 @@ export function MediaPlayer({
     else media.pause();
   };
 
+  const activeChapter = activeChapterIndex >= 0 ? chapters[activeChapterIndex] : null;
+
   return (
-    <div className="rounded-xl border border-border bg-muted/40 p-4">
-      <div>
+    <div
+      ref={containerRef}
+      className="fixed inset-x-0 bottom-0 z-30 border-t border-border bg-background shadow-[0_-8px_24px_-12px_rgb(0_0_0/0.15)]"
+    >
+      <div className="mx-auto flex max-w-6xl flex-wrap items-center gap-x-3 gap-y-2 px-4 py-3 sm:px-6">
         {kind === "video" ? (
-          <video
-            ref={mediaRef as RefObject<HTMLVideoElement>}
-            src={src}
-            className="mb-3 aspect-video w-full rounded-lg bg-black"
-          />
-        ) : (
-          <div className="mb-3 flex items-center justify-center rounded-lg bg-background/60 py-6">
-            <div className="flex size-10 items-center justify-center rounded-full bg-brand-soft text-brand-soft-foreground">
-              <SoundWaveIcon />
+          // The <video> element is never remounted: expanding just re-positions
+          // its wrapper as a fixed overlay above the dock, so playback state
+          // survives toggling. (The dock deliberately has no backdrop-filter or
+          // transform, which would otherwise trap `fixed` children.)
+          <div className="relative h-10 w-16 shrink-0">
+            <div
+              onClick={() => setExpanded((prev) => !prev)}
+              className={cn(
+                expanded
+                  ? "fixed inset-x-0 top-0 z-40 flex items-center justify-center bg-black/85 p-4 sm:p-10"
+                  : "group absolute inset-0 cursor-pointer overflow-hidden rounded-md bg-black ring-1 ring-border",
+              )}
+              style={expanded ? { bottom: dockHeight } : undefined}
+            >
+              <video
+                ref={mediaRef as RefObject<HTMLVideoElement>}
+                src={src}
+                onClick={(event) => {
+                  if (expanded) {
+                    event.stopPropagation();
+                    togglePlay();
+                  }
+                }}
+                className={cn(
+                  expanded ? "max-h-full max-w-full rounded-lg shadow-2xl" : "size-full object-cover",
+                )}
+              />
+              {expanded ? (
+                <button
+                  type="button"
+                  aria-label="Close enlarged video"
+                  onClick={(event) => {
+                    event.stopPropagation();
+                    setExpanded(false);
+                  }}
+                  className="absolute right-4 top-4 flex size-9 items-center justify-center rounded-full bg-white/10 text-white transition-colors hover:bg-white/20"
+                >
+                  <X className="size-4" />
+                </button>
+              ) : (
+                <span
+                  aria-hidden
+                  className="absolute inset-0 flex items-center justify-center bg-black/40 text-white opacity-0 transition-opacity group-hover:opacity-100"
+                >
+                  <Maximize2 className="size-3.5" />
+                </span>
+              )}
             </div>
+          </div>
+        ) : (
+          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-md bg-brand-soft text-brand-soft-foreground">
+            <SoundWaveIcon />
             <audio ref={mediaRef as RefObject<HTMLAudioElement>} src={src} className="hidden" />
           </div>
         )}
 
-        <div className="flex items-center gap-3">
-          <button
-            type="button"
-            onClick={togglePlay}
-            aria-label={isPlaying ? "Pause" : "Play"}
-            className="flex size-8 shrink-0 items-center justify-center rounded-full bg-brand text-brand-foreground transition-colors hover:bg-brand-hover"
-          >
-            {isPlaying ? (
-              <Pause className="size-3.5 fill-current" />
-            ) : (
-              <Play className="ml-0.5 size-3.5 fill-current" />
-            )}
-          </button>
+        <button
+          type="button"
+          onClick={togglePlay}
+          aria-label={isPlaying ? "Pause" : "Play"}
+          className="flex size-9 shrink-0 items-center justify-center rounded-full bg-brand text-brand-foreground transition-colors hover:bg-brand-hover"
+        >
+          {isPlaying ? (
+            <Pause className="size-4 fill-current" />
+          ) : (
+            <Play className="ml-0.5 size-4 fill-current" />
+          )}
+        </button>
 
+        <div className="min-w-0 flex-1 md:w-52 md:flex-none">
+          <p className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
+            {isPlaying ? "Now playing" : "Paused"}
+          </p>
+          <p className="truncate text-sm font-medium text-foreground">
+            {activeChapter?.title ?? "Start of recording"}
+          </p>
+        </div>
+
+        <div className="order-last flex w-full items-center gap-3 md:order-none md:w-auto md:flex-1">
           <span
             ref={currentTimeRef}
             className="w-10 shrink-0 text-xs tabular-nums text-muted-foreground"
           >
             0:00
           </span>
-
           <div
             ref={trackRef}
             onClick={handleTrackClick}
@@ -166,18 +248,13 @@ export function MediaPlayer({
             aria-valuemin={0}
             aria-valuemax={Math.round(duration)}
             aria-valuenow={0}
-            className="relative h-2 flex-1 cursor-pointer rounded-full bg-border"
+            className="relative h-1.5 flex-1 cursor-pointer rounded-full bg-border"
           >
             <div
               ref={fillRef}
               className="pointer-events-none absolute inset-y-0 left-0 rounded-full bg-brand"
               style={{ width: "0%" }}
             />
-
-            {/* Chapter dividers — thin notches cut into the track itself.
-                Distinct from coaching-flag markers below both in shape
-                (line vs. dot) and position (inside the track vs. perched
-                above it), so the two marker types never compete visually. */}
             {chapters
               .filter((chapter) => chapter.startMs > 0)
               .map((chapter) => (
@@ -185,52 +262,50 @@ export function MediaPlayer({
                   key={chapter.id}
                   aria-hidden
                   title={chapter.title}
-                  className="pointer-events-none absolute -inset-y-1 w-px -translate-x-1/2 bg-foreground/50"
+                  className="pointer-events-none absolute -inset-y-1 w-px -translate-x-1/2 bg-foreground/40"
                   style={{ left: `${percentOf(chapter.startMs, duration)}%` }}
                 />
               ))}
-
             {flags.map((flag) => (
               <FlagMarker
                 key={flag.id}
                 flag={flag}
                 leftPercent={percentOf(flag.timestampMs, duration)}
-                onSeek={seekTo}
+                onJump={onJump}
               />
             ))}
           </div>
-
           <span className="w-10 shrink-0 text-right text-xs tabular-nums text-muted-foreground">
             {duration ? formatTimestamp(duration * 1000) : "0:00"}
           </span>
         </div>
-      </div>
 
-      {chapters.length > 0 && (
-        <div className="mt-3 flex max-h-36 flex-col gap-0.5 overflow-y-auto">
-          <p className="px-1 pb-1 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-            Chapters
-          </p>
-          {chapters.map((chapter, index) => (
-            <button
-              key={chapter.id}
-              type="button"
-              onClick={() => seekTo(chapter.startMs)}
-              className={cn(
-                "flex items-center justify-between gap-2 rounded-lg px-2 py-1.5 text-left text-sm transition-colors",
-                index === activeChapterIndex
-                  ? "bg-brand-soft text-brand-soft-foreground"
-                  : "text-foreground hover:bg-muted",
-              )}
-            >
-              <span className="truncate">{chapter.title}</span>
-              <span className="shrink-0 text-xs tabular-nums text-muted-foreground">
-                {formatTimestamp(chapter.startMs)}–{formatTimestamp(chapter.endMs)}
-              </span>
-            </button>
-          ))}
+        <div className="flex shrink-0 items-center gap-1">
+          <button
+            type="button"
+            onClick={onToggleFollow}
+            aria-pressed={follow}
+            title="Keep the transcript scrolled to what's playing"
+            className={cn(
+              "inline-flex h-8 items-center gap-1.5 rounded-lg px-2.5 text-sm font-medium transition-colors",
+              follow
+                ? "bg-brand-soft text-brand-soft-foreground"
+                : "text-muted-foreground hover:bg-muted hover:text-foreground",
+            )}
+          >
+            <LocateFixed className="size-4" />
+            <span className="hidden sm:inline">Follow</span>
+          </button>
+          <button
+            type="button"
+            onClick={onOpenAsk}
+            className="inline-flex h-8 items-center gap-1.5 rounded-lg px-2.5 text-sm font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+          >
+            <Sparkles className="size-4" />
+            <span className="hidden sm:inline">Ask</span>
+          </button>
         </div>
-      )}
+      </div>
     </div>
   );
 }
@@ -238,24 +313,16 @@ export function MediaPlayer({
 function FlagMarker({
   flag,
   leftPercent,
-  onSeek,
+  onJump,
 }: {
   flag: CoachingFlagMarker;
   leftPercent: number;
-  onSeek: (ms: number) => void;
+  onJump: (ms: number) => void;
 }) {
   const meta = FLAG_KIND_META[flag.kind];
   const Icon = meta.icon;
   const [open, setOpen] = useState(false);
 
-  // A flag detail popup anchored to this marker has nowhere to go without
-  // overlapping the chapters list or transcript — the marker sits in a
-  // dense, compact player card with no contiguous empty region big enough
-  // for even a small popover (measured: ~120px available vs. the content
-  // needing 160px+). A centered Dialog sidesteps that entirely: it's
-  // positioned relative to the viewport, not the cramped anchor, so it
-  // can't overlap page content regardless of scroll position or marker
-  // location.
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger
@@ -264,7 +331,7 @@ function FlagMarker({
             type="button"
             aria-label={`${meta.label}: ${flag.label}`}
             onClick={(event: React.MouseEvent) => event.stopPropagation()}
-            className="absolute -top-1.5 z-10 flex size-3 -translate-x-1/2 items-center justify-center rounded-full bg-amber-500 ring-2 ring-background transition-transform hover:scale-125"
+            className="absolute -top-1 z-10 flex size-2.5 -translate-x-1/2 items-center justify-center rounded-full bg-amber-500 ring-2 ring-background transition-transform hover:scale-150"
             style={{ left: `${leftPercent}%` }}
           />
         }
@@ -284,7 +351,7 @@ function FlagMarker({
         <button
           type="button"
           onClick={() => {
-            onSeek(flag.timestampMs);
+            onJump(flag.timestampMs);
             setOpen(false);
           }}
           className="self-start text-sm font-medium text-brand hover:underline"
@@ -304,7 +371,7 @@ function SoundWaveIcon() {
       stroke="currentColor"
       strokeWidth="2"
       strokeLinecap="round"
-      className="size-6"
+      className="size-5"
       aria-hidden
     >
       <path d="M4 10v4M8 6v12M12 3v18M16 6v12M20 10v4" />

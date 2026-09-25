@@ -2,13 +2,14 @@ import { notFound } from "next/navigation";
 import { db } from "@/db";
 import { SiteHeader } from "@/components/site-header";
 import { MeetingWorkspace } from "@/components/meeting/meeting-workspace";
-import type { TranscriptLine } from "@/components/meeting/transcript-panel";
+import type { TranscriptLine } from "@/components/meeting/conversation";
 import type { SummaryData } from "@/components/meeting/summary-panel";
 import type { ActionItemData } from "@/components/meeting/action-items-panel";
-import type { ChapterMarker, CoachingFlagMarker } from "@/components/meeting/media-player";
-import { ShareDialog } from "@/components/meeting/share-dialog";
+import type { ChapterMarker, CoachingFlagMarker } from "@/components/meeting/docked-player";
+import type { SpeakerSummary } from "@/components/meeting/talk-time-bar";
 import { MeetingProcessingState } from "@/components/meeting/processing-state";
 import { BackToMeetingsLink } from "@/components/back-to-meetings-link";
+import { formatDate, formatDuration } from "@/lib/format";
 
 type PageProps = {
   params: Promise<{ id: string }>;
@@ -43,14 +44,17 @@ export default async function MeetingPage({ params }: PageProps) {
     return (
       <div className="flex min-h-screen flex-1 flex-col bg-background">
         <SiteHeader />
-        <div className="border-b border-border/70 px-6 py-5">
-          <div className="mx-auto max-w-6xl">
+        <header className="border-b border-border/70">
+          <div className="mx-auto max-w-6xl px-6 pb-8 pt-6">
             <BackToMeetingsLink />
-            <h1 className="mt-2 text-2xl font-semibold tracking-tight text-foreground">
+            <h1 className="mt-5 text-3xl font-semibold tracking-tight text-foreground">
               {meeting.title}
             </h1>
+            <p className="mt-2 text-sm text-muted-foreground">
+              {formatDate(meeting.recordedAt)}
+            </p>
           </div>
-        </div>
+        </header>
         <main className="flex-1">
           <MeetingProcessingState
             meetingId={meeting.id}
@@ -105,9 +109,17 @@ export default async function MeetingPage({ params }: PageProps) {
     isLowConfidence: item.isLowConfidence,
   }));
 
+  const speakers: SpeakerSummary[] = meeting.participants.map((participant, index) => ({
+    name: participant.name,
+    initial: participant.speakerLabel ?? participant.name.charAt(0).toUpperCase(),
+    colorIndex: index,
+    talkTimeSeconds: participant.talkTimeSeconds,
+  }));
+
   const chapters: ChapterMarker[] = meeting.chapters.map((chapter) => ({
     id: chapter.id,
     title: chapter.title,
+    summary: chapter.summary,
     startMs: chapter.startMs,
     endMs: chapter.endMs,
   }));
@@ -126,19 +138,12 @@ export default async function MeetingPage({ params }: PageProps) {
   return (
     <div className="flex min-h-screen flex-1 flex-col bg-background">
       <SiteHeader />
-      <div className="border-b border-border/70 px-6 py-5">
-        <div className="mx-auto max-w-6xl">
-          <BackToMeetingsLink />
-          <div className="mt-2 flex items-center justify-between gap-4">
-            <h1 className="text-2xl font-semibold tracking-tight text-foreground">
-              {meeting.title}
-            </h1>
-            <ShareDialog meetingId={meeting.id} />
-          </div>
-        </div>
-      </div>
       <MeetingWorkspace
         meetingId={meeting.id}
+        title={meeting.title}
+        dateLabel={formatDate(meeting.recordedAt)}
+        durationLabel={formatDuration(meeting.durationSeconds)}
+        speakers={speakers}
         mediaKind={mediaKind}
         mediaSrc={mediaSrc}
         transcript={transcript}
